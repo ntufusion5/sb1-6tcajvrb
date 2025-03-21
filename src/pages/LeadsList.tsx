@@ -152,9 +152,9 @@ function LeadsList() {
       setGeneratingLeads(true);
       setError(null);
       
-      // Call the background function to start lead generation
-      console.log('Sending request to /api/generate-leads-background');
-      const response = await fetch('/api/generate-leads-background', {
+      // Call the simplified function to start lead generation
+      console.log('Sending request to /api/simple-generate-leads');
+      const response = await fetch('/api/simple-generate-leads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -208,7 +208,7 @@ function LeadsList() {
       const statusCheckInterval = setInterval(async () => {
         try {
           console.log(`Checking status for job ${jobId}...`);
-          const statusResponse = await fetch(`/api/check-job-status?jobId=${jobId}`);
+          const statusResponse = await fetch(`/api/simple-check-status?jobId=${jobId}`);
           console.log('Status response:', statusResponse.status);
           
           if (statusResponse.ok) {
