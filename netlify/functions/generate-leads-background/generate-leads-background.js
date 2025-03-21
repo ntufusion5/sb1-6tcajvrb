@@ -4,6 +4,7 @@ const path = require('path');
 exports.handler = async function(event, context) {
   console.log('Function invoked with event:', JSON.stringify(event));
   console.log('Context:', JSON.stringify(context));
+  console.log('Request body:', event.body);
   
   // Handle OPTIONS request for CORS
   if (event.httpMethod === 'OPTIONS') {
@@ -20,10 +21,18 @@ exports.handler = async function(event, context) {
   }
   
   try {
-    // Prepare the response data
+    // Check environment variables
+    console.log('Environment variables check:');
+    console.log('SUPABASE_URL exists:', !!process.env.SUPABASE_URL);
+    console.log('SUPABASE_ANON_KEY exists:', !!process.env.SUPABASE_ANON_KEY);
+    console.log('JIGSAWSTACK_API_KEY exists:', !!process.env.JIGSAWSTACK_API_KEY);
+    console.log('OPENAI_API_KEY exists:', !!process.env.OPENAI_API_KEY);
+    
+    // For testing, return a simplified response
     const responseData = { 
       message: "Lead generation started in background",
-      jobId: context.awsRequestId // Use as a job ID for status checking
+      jobId: "test-" + Date.now(), // Use a test job ID for now
+      timestamp: new Date().toISOString()
     };
     
     // Stringify the response data
@@ -42,10 +51,20 @@ exports.handler = async function(event, context) {
       body: responseBody
     };
     
+    // Check for empty response body
+    if (!response.body || response.body.trim() === '') {
+      console.error('Empty response body detected');
+      response.body = JSON.stringify({ 
+        error: "Empty response body",
+        message: "The response body is empty or undefined"
+      });
+    }
+    
     console.log('Returning response:', JSON.stringify(response));
     
     // Don't wait for this to complete
-    processInBackground(event, context);
+    // Commenting out for testing
+    // processInBackground(event, context);
     
     return response;
   } catch (error) {
