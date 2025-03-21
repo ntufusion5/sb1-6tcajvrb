@@ -152,7 +152,7 @@ function LeadsList() {
       setError(null);
       
       // Call the background function to start lead generation
-      const response = await fetch('/.netlify/functions/generate-leads-background', {
+      const response = await fetch('/api/generate-leads-background', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -171,12 +171,26 @@ function LeadsList() {
         throw new Error(`Failed to start lead generation: ${response.statusText}`);
       }
       
-      const { jobId } = await response.json();
+      // Get response text first for debugging
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+      
+      // Try to parse the JSON
+      let jobData;
+      try {
+        jobData = JSON.parse(responseText);
+        console.log('Parsed job data:', jobData);
+      } catch (parseError) {
+        console.error('Failed to parse response:', responseText);
+        throw new Error(`Invalid JSON response: ${responseText}`);
+      }
+      
+      const { jobId } = jobData;
       
       // Start polling for job status
       const statusCheckInterval = setInterval(async () => {
         try {
-          const statusResponse = await fetch(`/.netlify/functions/check-job-status?jobId=${jobId}`);
+          const statusResponse = await fetch(`/api/check-job-status?jobId=${jobId}`);
           if (statusResponse.ok) {
             const jobStatus = await statusResponse.json();
             
