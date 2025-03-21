@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Download, Upload, Filter, Search, ChevronDown, Trash2, Edit, AlertCircle, RefreshCw, Eye } from 'lucide-react';
+import { Download, Upload, Filter, Search, ChevronDown, Trash2, Edit, AlertCircle, RefreshCw, Eye, Sparkles } from 'lucide-react';
 import Papa from 'papaparse';
 
 type Lead = {
@@ -15,6 +15,13 @@ type Lead = {
   status: string;
   created_at: string;
   last_contacted: string | null;
+  company_size: string | null;
+  founded: string | null;
+  website: string | null;
+  source_url: string | null;
+  ai_readiness_score: string | null;
+  ai_readiness_category: string | null;
+  company_type: string | null;
 };
 
 type FilterOptions = {
@@ -29,6 +36,7 @@ function LeadsList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [generatingLeads, setGeneratingLeads] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     status: '',
     industry: '',
@@ -95,11 +103,18 @@ function LeadsList() {
       Email: lead.email,
       Industry: lead.industry || '',
       'Employee Count': lead.employee_count || '',
+      'Company Size': lead.company_size || '',
+      'Founded': lead.founded || '',
+      'Website': lead.website || '',
       'AI Readiness': lead.ai_readiness || '',
+      'AI Readiness Score': lead.ai_readiness_score || '',
+      'AI Readiness Category': lead.ai_readiness_category || '',
+      'Company Type': lead.company_type || '',
       'Lead Score': lead.lead_score,
       Status: lead.status,
       'Created At': new Date(lead.created_at).toLocaleDateString(),
-      'Last Contacted': lead.last_contacted ? new Date(lead.last_contacted).toLocaleDateString() : ''
+      'Last Contacted': lead.last_contacted ? new Date(lead.last_contacted).toLocaleDateString() : '',
+      'Source URL': lead.source_url || ''
     }));
 
     const csv = Papa.unparse(exportData);
@@ -128,6 +143,64 @@ function LeadsList() {
     } catch (err) {
       console.error('Error deleting lead:', err);
       alert('Failed to delete lead. Please try again.');
+    }
+  };
+
+  const handleGenerateLeads = async () => {
+    try {
+      setGeneratingLeads(true);
+      setError(null);
+      
+      // Call the background function to start lead generation
+      const response = await fetch('/api/generate-leads-background', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          count: 5, // Generate 5 leads
+          targetProfile: {
+            employeeCount: '10-50',
+            annualRevenue: '10000000-20000000',
+            preferredType: 'SME'
+          }
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to start lead generation: ${response.statusText}`);
+      }
+      
+      const { jobId } = await response.json();
+      
+      // Start polling for job status
+      const statusCheckInterval = setInterval(async () => {
+        try {
+          const statusResponse = await fetch(`/api/check-job-status?jobId=${jobId}`);
+          if (statusResponse.ok) {
+            const jobStatus = await statusResponse.json();
+            
+            if (jobStatus.status === 'complete') {
+              clearInterval(statusCheckInterval);
+              setGeneratingLeads(false);
+              await fetchLeads(); // Refresh leads list
+              alert('Lead generation complete!');
+            } else if (jobStatus.status === 'error') {
+              clearInterval(statusCheckInterval);
+              setGeneratingLeads(false);
+              setError(jobStatus.message || 'Error generating leads');
+            }
+          }
+        } catch (statusErr) {
+          console.error('Error checking job status:', statusErr);
+          // Don't clear the interval, keep trying
+        }
+      }, 5000); // Check every 5 seconds
+      
+    } catch (err: any) {
+      console.error('Error generating leads:', err);
+      setError(err.message || 'Failed to generate leads. Please try again.');
+      setGeneratingLeads(false);
     }
   };
 
@@ -213,6 +286,18 @@ function LeadsList() {
           >
             <Upload className="h-5 w-5 mr-2" />
             Add Lead
+          </button>
+          <button
+            onClick={handleGenerateLeads}
+            disabled={generatingLeads}
+            className={`flex items-center px-4 py-2 ${
+              generatingLeads 
+                ? 'bg-indigo-400 cursor-not-allowed' 
+                : 'bg-indigo-600 hover:bg-indigo-700'
+            } text-white rounded-md`}
+          >
+            <Sparkles className="h-5 w-5 mr-2" />
+            {generatingLeads ? 'Generating...' : 'Generate Leads'}
           </button>
           <button
             onClick={handleExport}
@@ -379,7 +464,10 @@ function LeadsList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{lead.industry || 'N/A'}</div>
-                      <div className="text-sm text-gray-500">{lead.ai_readiness || 'Unknown readiness'}</div>
+                      <div className="text-sm text-gray-500">
+                        {lead.ai_readiness_category || lead.ai_readiness || 'Unknown readiness'}
+                        {lead.company_type && ` • ${lead.company_type}`}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{lead.lead_score}</div>
