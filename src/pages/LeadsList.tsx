@@ -148,10 +148,12 @@ function LeadsList() {
 
   const handleGenerateLeads = async () => {
     try {
+      console.log('Starting lead generation...');
       setGeneratingLeads(true);
       setError(null);
       
       // Call the background function to start lead generation
+      console.log('Sending request to /api/generate-leads-background');
       const response = await fetch('/api/generate-leads-background', {
         method: 'POST',
         headers: {
@@ -167,29 +169,67 @@ function LeadsList() {
         }),
       });
       
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries([...response.headers]));
+      
       if (!response.ok) {
         throw new Error(`Failed to start lead generation: ${response.statusText}`);
       }
       
-      const { jobId } = await response.json();
+      // Get response as text first
+      const responseText = await response.text();
+      console.log('Raw response text:', responseText);
+      
+      // Then try to parse as JSON
+      let jobData;
+      try {
+        jobData = JSON.parse(responseText);
+        console.log('Parsed job data:', jobData);
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        throw new Error(`Invalid JSON response: ${responseText}`);
+      }
+      
+      const jobId = jobData.jobId;
+      console.log('Job ID:', jobId);
       
       // Start polling for job status
+      console.log('Starting to poll for job status...');
       const statusCheckInterval = setInterval(async () => {
         try {
+          console.log(`Checking status for job ${jobId}...`);
           const statusResponse = await fetch(`/api/check-job-status?jobId=${jobId}`);
+          console.log('Status response:', statusResponse.status);
+          
           if (statusResponse.ok) {
-            const jobStatus = await statusResponse.json();
+            const statusText = await statusResponse.text();
+            console.log('Raw status response:', statusText);
+            
+            let jobStatus;
+            try {
+              jobStatus = JSON.parse(statusText);
+              console.log('Job status:', jobStatus);
+            } catch (parseError) {
+              console.error('Failed to parse status response:', parseError);
+              return; // Continue polling
+            }
             
             if (jobStatus.status === 'complete') {
+              console.log('Job complete, clearing interval');
               clearInterval(statusCheckInterval);
               setGeneratingLeads(false);
               await fetchLeads(); // Refresh leads list
               alert('Lead generation complete!');
             } else if (jobStatus.status === 'error') {
+              console.log('Job error, clearing interval');
               clearInterval(statusCheckInterval);
               setGeneratingLeads(false);
               setError(jobStatus.message || 'Error generating leads');
+            } else {
+              console.log(`Job status: ${jobStatus.status}`);
             }
+          } else {
+            console.error('Status check failed:', statusResponse.statusText);
           }
         } catch (statusErr) {
           console.error('Error checking job status:', statusErr);

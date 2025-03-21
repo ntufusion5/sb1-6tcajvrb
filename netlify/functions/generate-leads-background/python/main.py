@@ -3,11 +3,21 @@ import json
 import os
 import sys
 import time
+import logging
 from jigsawstack import JigsawStack
 import openai
 from supabase import create_client
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('lead_generation')
+
 def main():
+    logger.info("Starting lead generation process...")
+    
     # Parse command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--job-id', required=True)
@@ -15,55 +25,89 @@ def main():
     parser.add_argument('--target-profile', default='{}')
     args = parser.parse_args()
     
+    logger.info(f"Arguments: job_id={args.job_id}, count={args.count}, target_profile={args.target_profile}")
+    
     # Parse target profile
     target_profile = json.loads(args.target_profile)
     
+    # Check environment variables
+    logger.info("Checking environment variables...")
+    logger.info(f"JIGSAWSTACK_API_KEY exists: {bool(os.environ.get('JIGSAWSTACK_API_KEY'))}")
+    logger.info(f"OPENAI_API_KEY exists: {bool(os.environ.get('OPENAI_API_KEY'))}")
+    logger.info(f"SUPABASE_URL exists: {bool(os.environ.get('SUPABASE_URL'))}")
+    logger.info(f"SUPABASE_ANON_KEY exists: {bool(os.environ.get('SUPABASE_ANON_KEY'))}")
+    
     # Initialize clients
-    jigsawstack_client = JigsawStack(
-        api_key=os.environ.get('JIGSAWSTACK_API_KEY')
-    )
-    openai_client = openai.Client(
-        api_key=os.environ.get('OPENAI_API_KEY')
-    )
-    supabase_client = create_client(
-        os.environ.get('SUPABASE_URL'),
-        os.environ.get('SUPABASE_ANON_KEY')
-    )
+    logger.info("Initializing API clients...")
+    try:
+        jigsawstack_client = JigsawStack(
+            api_key=os.environ.get('JIGSAWSTACK_API_KEY')
+        )
+        logger.info("JigsawStack client initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize JigsawStack client: {str(e)}")
+        raise
+    
+    try:
+        openai_client = openai.Client(
+            api_key=os.environ.get('OPENAI_API_KEY')
+        )
+        logger.info("OpenAI client initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize OpenAI client: {str(e)}")
+        raise
+    
+    try:
+        supabase_client = create_client(
+            os.environ.get('SUPABASE_URL'),
+            os.environ.get('SUPABASE_ANON_KEY')
+        )
+        logger.info("Supabase client initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize Supabase client: {str(e)}")
+        raise
     
     # Update job status
+    logger.info(f"Updating job status to 'processing' for job {args.job_id}")
     update_job_status(supabase_client, args.job_id, 'processing', 'Lead generation started')
     
     try:
         # Step 1: Generate search queries based on target profile
-        print(f"Generating search queries for {args.count} leads...")
+        logger.info(f"Generating search queries for {args.count} leads...")
         search_queries = generate_search_queries(openai_client, target_profile, args.count)
+        logger.info(f"Generated search queries: {search_queries}")
         
         # Step 2: Find LinkedIn URLs using JigsawStack
-        print("Finding LinkedIn company URLs...")
+        logger.info("Finding LinkedIn company URLs...")
         linkedin_urls = find_linkedin_urls(jigsawstack_client, search_queries)
+        logger.info(f"Found LinkedIn URLs: {linkedin_urls}")
         
         # Step 3: Scrape data from LinkedIn profiles
-        print("Scraping LinkedIn profiles...")
+        logger.info("Scraping LinkedIn profiles...")
         lead_data = scrape_linkedin_profiles(jigsawstack_client, linkedin_urls)
+        logger.info(f"Scraped data for {len(lead_data)} profiles")
         
         # Step 4: Analyze data with OpenAI
-        print("Analyzing company data with OpenAI...")
+        logger.info("Analyzing company data with OpenAI...")
         enriched_leads = analyze_company_data(openai_client, lead_data)
+        logger.info(f"Analyzed and enriched {len(enriched_leads)} leads")
         
         # Step 5: Store in Supabase
-        print("Storing leads in Supabase...")
+        logger.info("Storing leads in Supabase...")
         store_leads(supabase_client, enriched_leads)
         
         # Update job status to complete
+        logger.info(f"Updating job status to 'complete' for job {args.job_id}")
         update_job_status(
             supabase_client, 
             args.job_id, 
             'complete', 
             f'Successfully generated {len(enriched_leads)} leads'
         )
+        logger.info("Lead generation process completed successfully")
         
     except Exception as e:
-        print(f"Error in lead generation: {str(e)}")
+        logger.error(f"Error in lead generation: {str(e)}", exc_info=True)
         update_job_status(
             supabase_client,
             args.job_id,
