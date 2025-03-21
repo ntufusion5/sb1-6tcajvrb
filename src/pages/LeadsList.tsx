@@ -180,6 +180,11 @@ function LeadsList() {
       const responseText = await response.text();
       console.log('Raw response text:', responseText);
       
+      // Check if the response is empty
+      if (!responseText || !responseText.trim()) {
+        throw new Error('Empty response from server');
+      }
+      
       // Then try to parse as JSON
       let jobData;
       try {
@@ -188,6 +193,11 @@ function LeadsList() {
       } catch (parseError) {
         console.error('Failed to parse response:', parseError);
         throw new Error(`Invalid JSON response: ${responseText}`);
+      }
+      
+      // Check if jobId exists in the response
+      if (!jobData || !jobData.jobId) {
+        throw new Error(`Missing jobId in response: ${JSON.stringify(jobData)}`);
       }
       
       const jobId = jobData.jobId;

@@ -20,7 +20,17 @@ exports.handler = async function(event, context) {
   }
   
   try {
-    // Return immediately while processing continues in background
+    // Prepare the response data
+    const responseData = { 
+      message: "Lead generation started in background",
+      jobId: context.awsRequestId // Use as a job ID for status checking
+    };
+    
+    // Stringify the response data
+    const responseBody = JSON.stringify(responseData);
+    console.log('Response body:', responseBody);
+    
+    // Create the response object
     const response = {
       statusCode: 202,
       headers: {
@@ -29,10 +39,7 @@ exports.handler = async function(event, context) {
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type'
       },
-      body: JSON.stringify({ 
-        message: "Lead generation started in background",
-        jobId: context.awsRequestId // Use as a job ID for status checking
-      })
+      body: responseBody
     };
     
     console.log('Returning response:', JSON.stringify(response));

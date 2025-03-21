@@ -81,6 +81,12 @@ exports.handler = async function(event, context) {
     }
     
     console.log('Job status found:', data);
+    
+    // Stringify the data
+    const responseBody = JSON.stringify(data);
+    console.log('Response body:', responseBody);
+    
+    // Create the response object
     const response = {
       statusCode: 200,
       headers: {
@@ -89,8 +95,9 @@ exports.handler = async function(event, context) {
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type'
       },
-      body: JSON.stringify(data)
+      body: responseBody
     };
+    
     console.log('Returning response:', JSON.stringify(response));
     return response;
   } catch (error) {

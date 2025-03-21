@@ -23,3 +23,9 @@
   from = "/api/simple-check-status"
   to = "/.netlify/functions/simple-check-status"
   status = 200
+
+# Test JSON function redirect
+[[redirects]]
+  from = "/api/test-json"
+  to = "/.netlify/functions/test-json"
+  status = 200
