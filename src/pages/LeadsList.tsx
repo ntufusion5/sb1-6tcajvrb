@@ -151,8 +151,8 @@ function LeadsList() {
       setGeneratingLeads(true);
       setError(null);
       
-      // Call the background function to start lead generation
-      const response = await fetch('/api/generate-leads-background', {
+      // Call the simplified test function for lead generation
+      const response = await fetch('/api/simple-generate-leads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -171,26 +171,12 @@ function LeadsList() {
         throw new Error(`Failed to start lead generation: ${response.statusText}`);
       }
       
-      // Get response text first for debugging
-      const responseText = await response.text();
-      console.log('Raw response:', responseText);
-      
-      // Try to parse the JSON
-      let jobData;
-      try {
-        jobData = JSON.parse(responseText);
-        console.log('Parsed job data:', jobData);
-      } catch (parseError) {
-        console.error('Failed to parse response:', responseText);
-        throw new Error(`Invalid JSON response: ${responseText}`);
-      }
-      
-      const { jobId } = jobData;
+      const { jobId } = await response.json();
       
       // Start polling for job status
       const statusCheckInterval = setInterval(async () => {
         try {
-          const statusResponse = await fetch(`/api/check-job-status?jobId=${jobId}`);
+          const statusResponse = await fetch(`/api/simple-check-status?jobId=${jobId}`);
           if (statusResponse.ok) {
             const jobStatus = await statusResponse.json();
             
