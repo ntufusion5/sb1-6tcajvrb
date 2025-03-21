@@ -151,14 +151,14 @@ function LeadsList() {
       setGeneratingLeads(true);
       setError(null);
       
-      // Call the simplified test function for lead generation
-      const response = await fetch('/api/simple-generate-leads', {
+      // Call the background function to start lead generation
+      const response = await fetch('/api/generate-leads-background', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          count: 5, // Generate 5 leads
+          count: 1, // Generate 1 lead for testing
           targetProfile: {
             employeeCount: '10-50',
             annualRevenue: '10000000-20000000',
@@ -176,7 +176,7 @@ function LeadsList() {
       // Start polling for job status
       const statusCheckInterval = setInterval(async () => {
         try {
-          const statusResponse = await fetch(`/api/simple-check-status?jobId=${jobId}`);
+          const statusResponse = await fetch(`/api/check-job-status?jobId=${jobId}`);
           if (statusResponse.ok) {
             const jobStatus = await statusResponse.json();
             
