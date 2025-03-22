@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "update-db": "node update_supabase.js"
+    "update-db": "node update_supabase.js",
+    "postinstall": "npm install"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

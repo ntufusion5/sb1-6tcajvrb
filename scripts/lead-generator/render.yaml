@@ -2,11 +2,13 @@ services:
   - type: web
     name: lead-generator-api
     env: node
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: cd scripts/lead-generator && npm ci
+    startCommand: cd scripts/lead-generator && npm start
     envVars:
       - key: PORT
         value: 10000
+      - key: NODE_PATH
+        value: /opt/render/project/src/scripts/lead-generator/node_modules
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY

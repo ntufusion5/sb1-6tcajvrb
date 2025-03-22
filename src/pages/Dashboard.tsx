@@ -47,8 +47,8 @@ function Dashboard() {
       setGeneratingLeads(true);
       setJobStatus('starting');
       
-      // Replace with your Render.com URL when deployed
-      const apiUrl = 'https://lead-generator-api.onrender.com';
+      // Render.com deployed API URL
+      const apiUrl = 'https://lead-generator-api-m68v.onrender.com';
       
       const response = await fetch(`${apiUrl}/api/generate-leads`, {
         method: 'POST',
@@ -77,8 +77,8 @@ function Dashboard() {
   
   async function pollJobStatus(id: string) {
     try {
-      // Replace with your Render.com URL when deployed
-      const apiUrl = 'https://lead-generator-api.onrender.com';
+      // Render.com deployed API URL
+      const apiUrl = 'https://lead-generator-api-m68v.onrender.com';
       
       const response = await fetch(`${apiUrl}/api/check-status/${id}`);
       const data = await response.json();

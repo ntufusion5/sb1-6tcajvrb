@@ -145,15 +145,15 @@ Go to [render.com](https://render.com/) and sign up for an account if you don't 
 
 2. **Configure the deployment**:
    - Name: "lead-generator-api"
-   - Root Directory: "scripts/lead-generator"
    - Environment: "Node"
-   - Build Command: `npm install`
-   - Start Command: `npm start`
+   - Build Command: `cd scripts/lead-generator && npm ci`
+   - Start Command: `cd scripts/lead-generator && npm start`
    - Select the appropriate plan (Free tier is fine for testing)
 
 3. **Set environment variables**:
    - Click on "Environment" tab
    - Add the following environment variables:
+     - NODE_PATH: /opt/render/project/src/scripts/lead-generator/node_modules
      - SUPABASE_URL: your_supabase_url
      - SUPABASE_SERVICE_KEY: your_supabase_key
      - OPENAI_API_KEY: your_openai_key
@@ -175,6 +175,20 @@ const apiUrl = 'http://localhost:3000';
 // With this:
 const apiUrl = 'https://lead-generator-api.onrender.com';
 ```
+
+### 4. Troubleshooting Deployment Issues
+
+If you encounter the "Cannot find module 'express'" error or similar dependency issues:
+
+1. **Check the deployment logs** in the Render dashboard
+2. **Verify that the NODE_PATH environment variable** is set correctly
+3. **Make sure the postinstall script** in package.json is running
+4. **Try redeploying** after making changes to the configuration
+
+The current configuration includes several fixes for common deployment issues:
+- Added a postinstall script to ensure dependencies are installed correctly
+- Set the NODE_PATH environment variable to help Node.js find installed modules
+- Using npm ci instead of npm install for more reliable dependency installation
 
 ## License
 
