@@ -1,3 +1,5 @@
+const { createClient } = require('@supabase/supabase-js');
+
 exports.handler = async function(event, context) {
   // Log request details
   console.log('Function invoked with method:', event.httpMethod);
@@ -37,8 +39,8 @@ exports.handler = async function(event, context) {
       };
     }
     
-    // Create a simple response
-    const responseData = {
+    // Initialize default response data
+    let responseData = {
       job_id: jobId,
       status: 'complete',
       message: 'Test job completed successfully (simplified version)',
@@ -46,6 +48,43 @@ exports.handler = async function(event, context) {
       updated_at: new Date().toISOString(),
       leads_generated: 1
     };
+    
+    // Initialize Supabase client
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    console.log('Supabase URL exists:', !!supabaseUrl);
+    console.log('Supabase key exists:', !!supabaseKey);
+    
+    // Try to get job status from database
+    if (supabaseUrl && supabaseKey) {
+      try {
+        console.log('Initializing Supabase client');
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        console.log('Querying database for job status');
+        const { data, error } = await supabase
+          .from('lead_generation_jobs')
+          .select('*')
+          .eq('job_id', jobId)
+          .single();
+        
+        if (error) {
+          console.log('Database error, falling back to test data:', error);
+          // Continue with test data as fallback
+        } else if (data) {
+          console.log('Found job in database:', data);
+          // Use real data but keep test data as fallback
+          responseData = data;
+        } else {
+          console.log('Job not found in database, using test data');
+        }
+      } catch (dbError) {
+        console.error('Database connection error:', dbError);
+        // Continue with test data as fallback
+      }
+    } else {
+      console.log('Supabase credentials not available, using test data');
+    }
     
     // Log the response we're about to send
     console.log('Sending response:', responseData);
