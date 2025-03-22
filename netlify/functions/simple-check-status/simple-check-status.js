@@ -39,7 +39,8 @@ exports.handler = async function(event, context) {
       };
     }
     
-    // Initialize default response data
+    // Initialize default response data with more detailed logging
+    console.log('Initializing default response data');
     let responseData = {
       job_id: jobId,
       status: 'complete',
@@ -48,12 +49,16 @@ exports.handler = async function(event, context) {
       updated_at: new Date().toISOString(),
       leads_generated: 1
     };
+    console.log('Default response data:', responseData);
     
     // Initialize Supabase client
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    // Try both with and without VITE_ prefix
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
     console.log('Supabase URL exists:', !!supabaseUrl);
     console.log('Supabase key exists:', !!supabaseKey);
+    console.log('Supabase URL:', supabaseUrl);
+    console.log('Supabase key length:', supabaseKey ? supabaseKey.length : 0);
     
     // Try to get job status from database
     if (supabaseUrl && supabaseKey) {

@@ -37,31 +37,44 @@ const processInBackground = async (jobId, requestData, supabaseUrl, supabaseKey)
       const website = `testcompany${Date.now().toString().slice(-4)}.com`;
       const email = `contact@${website}`;
       
-      // Insert the lead into the database
+      // Log Supabase connection details
+      console.log('Supabase URL:', supabaseUrl);
+      console.log('Supabase key length:', supabaseKey ? supabaseKey.length : 0);
+      
+      // Log table structure
+      console.log('Checking table structure...');
+      const { data: tableInfo, error: tableError } = await supabase
+        .from('leads')
+        .select('*')
+        .limit(1);
+      
+      if (tableError) {
+        console.error('Error checking table structure:', tableError);
+      } else {
+        console.log('Table structure sample:', tableInfo);
+      }
+      
+      // Simplified lead data for insertion
+      const leadDataToInsert = {
+        company_name: companyName,
+        email: email,
+        status: 'new',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        lead_score: 75 // Adding a basic lead score
+      };
+      
+      console.log('Lead data to insert:', leadDataToInsert);
+      
+      // Insert the lead into the database with simplified data
       const { data: leadData, error: leadError } = await supabase
         .from('leads')
-        .insert({
-          company_name: companyName,
-          email: email,
-          industry: 'Technology',
-          employee_count: Math.floor(Math.random() * 40) + 10, // 10-50 employees
-          company_size: '10-50',
-          founded: `${2010 + Math.floor(Math.random() * 13)}`, // 2010-2023
-          website: `https://${website}`,
-          ai_readiness: 'AI Aware',
-          ai_readiness_score: '3.0',
-          ai_readiness_category: 'AI Aware',
-          company_type: 'SME',
-          lead_score: Math.floor(Math.random() * 30) + 70, // 70-100
-          status: 'new',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
+        .insert(leadDataToInsert);
       
       if (leadError) {
-        console.error('Error inserting lead:', leadError);
+        console.error('Error inserting lead:', JSON.stringify(leadError));
       } else {
-        console.log('Successfully inserted lead:', leadData);
+        console.log('Successfully inserted lead:', JSON.stringify(leadData || {}));
         
         // Update job with lead count
         const { error: updateError } = await supabase
@@ -252,10 +265,13 @@ exports.handler = async function(event, context) {
     console.log('Generated job ID:', jobId);
     
     // Initialize Supabase client
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    // Try both with and without VITE_ prefix
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
     console.log('Supabase URL exists:', !!supabaseUrl);
     console.log('Supabase key exists:', !!supabaseKey);
+    console.log('Supabase URL:', supabaseUrl);
+    console.log('Supabase key length:', supabaseKey ? supabaseKey.length : 0);
     
     // Try to record job in database
     if (supabaseUrl && supabaseKey) {
