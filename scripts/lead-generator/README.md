@@ -146,7 +146,7 @@ Go to [render.com](https://render.com/) and sign up for an account if you don't 
 2. **Configure the deployment**:
    - Name: "lead-generator-api"
    - Environment: "Node"
-   - Build Command: `cd scripts/lead-generator && npm ci`
+   - Build Command: `cd scripts/lead-generator && npm ci && npm install express --save`
    - Start Command: `cd scripts/lead-generator && npm start`
    - Select the appropriate plan (Free tier is fine for testing)
 
@@ -182,13 +182,15 @@ If you encounter the "Cannot find module 'express'" error or similar dependency 
 
 1. **Check the deployment logs** in the Render dashboard
 2. **Verify that the NODE_PATH environment variable** is set correctly
-3. **Make sure the postinstall script** in package.json is running
+3. **Make sure the prestart and postinstall scripts** in package.json are running
 4. **Try redeploying** after making changes to the configuration
 
 The current configuration includes several fixes for common deployment issues:
+- Added a prestart script to explicitly install required dependencies before starting the server
 - Added a postinstall script to ensure dependencies are installed correctly
-- Set the NODE_PATH environment variable to help Node.js find installed modules
-- Using npm ci instead of npm install for more reliable dependency installation
+- Set the NODE_PATH environment variable with multiple paths to help Node.js find installed modules
+- Using npm ci followed by explicit express installation for more reliable dependency installation
+- Explicitly installing express as part of the build command
 
 ## License
 

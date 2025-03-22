@@ -4,6 +4,7 @@
   "description": "API for lead generation system",
   "main": "server.js",
   "scripts": {
+    "prestart": "npm install express cors dotenv uuid @supabase/supabase-js --save",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "update-db": "node update_supabase.js",
