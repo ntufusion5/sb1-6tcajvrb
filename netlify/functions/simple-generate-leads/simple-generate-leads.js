@@ -30,6 +30,57 @@ const processInBackground = async (jobId, requestData, supabaseUrl, supabaseKey)
     // Try to execute Python script
     let pythonExecuted = false;
     
+    // First, generate a simple lead with basic information
+    try {
+      console.log('Generating a test lead');
+      const companyName = `Test Company ${Date.now().toString().slice(-4)}`;
+      const website = `testcompany${Date.now().toString().slice(-4)}.com`;
+      const email = `contact@${website}`;
+      
+      // Insert the lead into the database
+      const { data: leadData, error: leadError } = await supabase
+        .from('leads')
+        .insert({
+          company_name: companyName,
+          email: email,
+          industry: 'Technology',
+          employee_count: Math.floor(Math.random() * 40) + 10, // 10-50 employees
+          company_size: '10-50',
+          founded: `${2010 + Math.floor(Math.random() * 13)}`, // 2010-2023
+          website: `https://${website}`,
+          ai_readiness: 'AI Aware',
+          ai_readiness_score: '3.0',
+          ai_readiness_category: 'AI Aware',
+          company_type: 'SME',
+          lead_score: Math.floor(Math.random() * 30) + 70, // 70-100
+          status: 'new',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      
+      if (leadError) {
+        console.error('Error inserting lead:', leadError);
+      } else {
+        console.log('Successfully inserted lead:', leadData);
+        
+        // Update job with lead count
+        const { error: updateError } = await supabase
+          .from('lead_generation_jobs')
+          .update({
+            leads_generated: 1
+          })
+          .eq('job_id', jobId);
+          
+        if (updateError) {
+          console.error('Error updating job with lead count:', updateError);
+        } else {
+          console.log('Successfully updated job with lead count');
+        }
+      }
+    } catch (dbError) {
+      console.error('Error generating lead:', dbError);
+    }
+    
     // Path to Python script
     const pythonScriptPath = path.join(__dirname, '..', 'generate-leads-background', 'python', 'main.py');
     console.log('Python script path:', pythonScriptPath);
