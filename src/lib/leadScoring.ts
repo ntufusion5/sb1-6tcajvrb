@@ -6,13 +6,16 @@ type LeadScoreBreakdown = {
   smeScore: number;
   revenueScore: number;
   employeeScore: number;
+  aiReadinessScore: number;
+  responseTimeMultiplier: number;
   total: number;
 };
 
 const DEFAULT_WEIGHTS = {
-  sme: 30,
-  revenue: 40,
-  employees: 30,
+  sme: 25,
+  revenue: 25,
+  employees: 25,
+  aiReadiness: 25
 };
 
 export async function calculateLeadScore(lead: Partial<Lead>): Promise<LeadScoreBreakdown> {
@@ -20,13 +23,15 @@ export async function calculateLeadScore(lead: Partial<Lead>): Promise<LeadScore
     let smeScore = 0;
     let revenueScore = 0;
     let employeeScore = 0;
+    let aiReadinessScore = 0;
+    let responseTimeMultiplier = 1.0;
 
-    // 1. SME Status (30 points)
+    // 1. SME Status (25 points)
     if (lead.is_sme) {
       smeScore = DEFAULT_WEIGHTS.sme;
     }
 
-    // 2. Annual Revenue (40 points)
+    // 2. Annual Revenue (25 points)
     if (lead.annual_revenue) {
       const revenue = Number(lead.annual_revenue);
       if (revenue >= 10000000 && revenue <= 20000000) {
@@ -38,7 +43,7 @@ export async function calculateLeadScore(lead: Partial<Lead>): Promise<LeadScore
       }
     }
 
-    // 3. Employee Count (30 points)
+    // 3. Employee Count (25 points)
     if (lead.employee_count) {
       const employees = lead.employee_count;
       if (employees >= 10 && employees <= 50) {
@@ -50,24 +55,54 @@ export async function calculateLeadScore(lead: Partial<Lead>): Promise<LeadScore
       }
     }
 
-    const total = Math.min(100, smeScore + revenueScore + employeeScore);
-
-    // Log score calculation if we have a lead ID
-    if (lead.id) {
-      await logScoreCalculation(lead.id, {
-        smeScore,
-        revenueScore,
-        employeeScore,
-        total
-      });
+    // 4. AI Readiness (25 points)
+    if (lead.ai_readiness) {
+      switch (lead.ai_readiness) {
+        case 'AI Competent':
+          aiReadinessScore = DEFAULT_WEIGHTS.aiReadiness;
+          break;
+        case 'AI Ready':
+          aiReadinessScore = Math.floor(DEFAULT_WEIGHTS.aiReadiness * 0.8); // 20 points
+          break;
+        case 'AI Aware':
+          aiReadinessScore = Math.floor(DEFAULT_WEIGHTS.aiReadiness * 0.6); // 15 points
+          break;
+        case 'AI Unaware':
+          aiReadinessScore = Math.floor(DEFAULT_WEIGHTS.aiReadiness * 0.2); // 5 points
+          break;
+      }
     }
 
-    return {
+    // 5. Response Time Multiplier (1.0 - 1.3)
+    if (lead.response_time) {
+      const responseTime = Number(lead.response_time);
+      if (responseTime <= 24) {
+        responseTimeMultiplier = 1.3;
+      } else if (responseTime <= 48) {
+        responseTimeMultiplier = 1.2;
+      } else if (responseTime <= 72) {
+        responseTimeMultiplier = 1.1;
+      }
+    }
+
+    const baseScore = smeScore + revenueScore + employeeScore + aiReadinessScore;
+    const total = Math.min(100, Math.round(baseScore * responseTimeMultiplier));
+
+    const breakdown = {
       smeScore,
       revenueScore,
       employeeScore,
+      aiReadinessScore,
+      responseTimeMultiplier,
       total
     };
+
+    // Log score calculation if we have a lead ID
+    if (lead.id) {
+      await logScoreCalculation(lead.id, breakdown);
+    }
+
+    return breakdown;
   } catch (error) {
     console.error('Error calculating lead score:', error);
     throw error;
@@ -133,7 +168,9 @@ supabase
           (payload.type === 'UPDATE' && 
            (payload.old.employee_count !== payload.new.employee_count ||
             payload.old.annual_revenue !== payload.new.annual_revenue ||
-            payload.old.is_sme !== payload.new.is_sme)
+            payload.old.is_sme !== payload.new.is_sme ||
+            payload.old.ai_readiness !== payload.new.ai_readiness ||
+            payload.old.last_contacted !== payload.new.last_contacted)
           )
         )) {
         await updateLeadScore(payload.new.id);

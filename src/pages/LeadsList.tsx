@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Download, Upload, Filter, Search, ChevronDown, Trash2, Edit, AlertCircle, RefreshCw, Eye } from 'lucide-react';
+import { Mail, Send, ExternalLink, Users, Download, Filter, Search, ChevronDown, Trash2, Edit, AlertCircle, RefreshCw, Eye, Clock } from 'lucide-react';
 import Papa from 'papaparse';
 
 type Lead = {
@@ -21,6 +21,7 @@ type FilterOptions = {
   status: string;
   industry: string;
   scoreRange: string;
+  sortBy: 'recent' | 'score' | 'company' | 'status';
 };
 
 function LeadsList() {
@@ -33,6 +34,7 @@ function LeadsList() {
     status: '',
     industry: '',
     scoreRange: '',
+    sortBy: 'recent'
   });
   const [showFilters, setShowFilters] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -57,7 +59,7 @@ function LeadsList() {
       const { data, error } = await supabase
         .from('leads')
         .select('*')
-        .order('lead_score', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) {
         throw error;
@@ -85,6 +87,7 @@ function LeadsList() {
       status: '',
       industry: '',
       scoreRange: '',
+      sortBy: 'recent'
     });
     setSearchTerm('');
   };
@@ -125,8 +128,8 @@ function LeadsList() {
 
       if (error) throw error;
       setLeads(leads.filter(lead => lead.id !== id));
-    } catch (err) {
-      console.error('Error deleting lead:', err);
+    } catch (error) {
+      console.error('Error deleting lead:', error);
       alert('Failed to delete lead. Please try again.');
     }
   };
@@ -135,7 +138,45 @@ function LeadsList() {
     navigate(`/leads/${id}`);
   };
 
-  const filteredLeads = leads.filter(lead => {
+  const handleSendAutomatedEmail = async (lead: Lead) => {
+    try {
+      // Send automated email
+      const { error: emailError } = await supabase.rpc('send_automated_email', { 
+        lead_id: lead.id 
+      });
+
+      if (emailError) throw emailError;
+
+      // Refresh leads to get updated status
+      await fetchLeads();
+    } catch (error) {
+      console.error('Error sending automated email:', error);
+      alert('Failed to send automated email. Please try again.');
+    }
+  };
+
+  const sortLeads = (leads: Lead[]) => {
+    switch (filters.sortBy) {
+      case 'recent':
+        return [...leads].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      case 'score':
+        return [...leads].sort((a, b) => b.lead_score - a.lead_score);
+      case 'company':
+        return [...leads].sort((a, b) => 
+          a.company_name.localeCompare(b.company_name)
+        );
+      case 'status':
+        return [...leads].sort((a, b) => 
+          a.status.localeCompare(b.status)
+        );
+      default:
+        return leads;
+    }
+  };
+
+  const filteredLeads = sortLeads(leads.filter(lead => {
     const matchesSearch = 
       lead.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -151,7 +192,7 @@ function LeadsList() {
     }
 
     return matchesSearch && matchesStatus && matchesIndustry && matchesScore;
-  });
+  }));
 
   if (isAuthenticated === null) {
     return (
@@ -211,7 +252,7 @@ function LeadsList() {
             onClick={() => navigate('/leads/new')}
             className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
           >
-            <Upload className="h-5 w-5 mr-2" />
+            <Users className="h-5 w-5 mr-2" />
             Add Lead
           </button>
           <button
@@ -288,7 +329,7 @@ function LeadsList() {
           </div>
 
           {showFilters && (
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-4 gap-4">
               <select
                 value={filters.status}
                 onChange={(e) => setFilters({ ...filters, status: e.target.value })}
@@ -319,6 +360,16 @@ function LeadsList() {
                 <option value="26-50">26-50</option>
                 <option value="51-75">51-75</option>
                 <option value="76-100">76-100</option>
+              </select>
+              <select
+                value={filters.sortBy}
+                onChange={(e) => setFilters({ ...filters, sortBy: e.target.value as FilterOptions['sortBy'] })}
+                className="border border-gray-300 rounded-md p-2"
+              >
+                <option value="recent">Most Recent</option>
+                <option value="score">Highest Score</option>
+                <option value="company">Company Name</option>
+                <option value="status">Status</option>
               </select>
             </div>
           )}
@@ -383,13 +434,15 @@ function LeadsList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{lead.lead_score}</div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(lead.created_at).toLocaleDateString()}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      <span className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         lead.status === 'new' ? 'bg-green-100 text-green-800' :
                         lead.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
                         lead.status === 'qualified' ? 'bg-purple-100 text-purple-800' :
-                        lead.status === 'proposal' ? 'bg-yellow-100 text-yellow-800' :
                         lead.status === 'closed' ? 'bg-gray-100 text-gray-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
@@ -400,21 +453,45 @@ function LeadsList() {
                       <div className="flex justify-end space-x-2" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleViewLead(lead.id)}
-                          className="text-indigo-600 hover:text-indigo-900"
+                          className="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-indigo-50"
                           title="View Lead"
                         >
                           <Eye className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => navigate(`/leads/${lead.id}`)}
-                          className="text-indigo-600 hover:text-indigo-900"
+                          className="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-indigo-50"
                           title="Edit Lead"
                         >
                           <Edit className="h-5 w-5" />
                         </button>
+                        <div className="relative group">
+                          <button
+                            className="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-indigo-50"
+                            title="Contact Options"
+                          >
+                            <Mail className="h-5 w-5" />
+                          </button>
+                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden group-hover:block">
+                            <button
+                              onClick={() => handleSendAutomatedEmail(lead)}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 flex items-center"
+                            >
+                              <Send className="h-4 w-4 mr-2" />
+                              Send Automated Email
+                            </button>
+                            <a
+                              href={`mailto:${lead.email}`}
+                              className="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 flex items-center"
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              Open in Mail App
+                            </a>
+                          </div>
+                        </div>
                         <button
                           onClick={() => handleDelete(lead.id)}
-                          className="text-red-600 hover:text-red-900"
+                          className="text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-red-50"
                           title="Delete Lead"
                         >
                           <Trash2 className="h-5 w-5" />

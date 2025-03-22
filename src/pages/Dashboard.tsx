@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   BarChart as BarChartIcon, Users, TrendingUp, ArrowUp, 
-  ArrowDown, Filter, Calendar, Download 
+  ArrowDown, Filter, Calendar, Download, AlertCircle,
+  Mail, ExternalLink, Send
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import {
@@ -18,6 +19,8 @@ type DashboardStats = {
   leadsByStatus: { name: string; value: number }[];
   leadScoreHistory: { date: string; score: number }[];
   conversionData: { month: string; leads: number; conversions: number }[];
+  highPriorityLeads: any[];
+  newLeads: any[];
 };
 
 type TimeFilter = '7d' | '30d' | '90d' | 'all';
@@ -30,10 +33,13 @@ function Dashboard() {
     monthlyGrowth: 0,
     leadsByStatus: [],
     leadScoreHistory: [],
-    conversionData: []
+    conversionData: [],
+    highPriorityLeads: [],
+    newLeads: []
   });
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('30d');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [generatingLeads, setGeneratingLeads] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
@@ -105,6 +111,7 @@ function Dashboard() {
   async function fetchStats() {
     try {
       setLoading(true);
+      setError(null);
       const now = new Date();
       const startDate = new Date();
       
@@ -137,6 +144,18 @@ function Dashboard() {
         ? Math.round(leads.reduce((acc, lead) => acc + (lead.lead_score || 0), 0) / totalLeads)
         : 0;
 
+      // Get high priority leads (score >= 70 and not contacted)
+      const highPriorityLeads = leads.filter(lead => 
+        lead.lead_score >= 70 && lead.status === 'qualified'
+      ).sort((a, b) => b.lead_score - a.lead_score);
+
+      // Get new leads from the last 7 days
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const newLeads = leads.filter(lead => 
+        new Date(lead.created_at) >= sevenDaysAgo && lead.status === 'new'
+      );
+
       // Calculate leads by status
       const statusCounts = leads.reduce((acc: { [key: string]: number }, lead) => {
         acc[lead.status] = (acc[lead.status] || 0) + 1;
@@ -148,13 +167,23 @@ function Dashboard() {
         value
       }));
 
-      // Calculate lead score history
-      const scoreHistory = leads
+      // Calculate lead score history (average score by day)
+      const scoresByDay = leads
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map(lead => ({
-          date: new Date(lead.created_at).toLocaleDateString(),
-          score: lead.lead_score
-        }));
+        .reduce((acc: { [key: string]: { total: number; count: number } }, lead) => {
+          const date = new Date(lead.created_at).toLocaleDateString();
+          if (!acc[date]) {
+            acc[date] = { total: 0, count: 0 };
+          }
+          acc[date].total += lead.lead_score;
+          acc[date].count += 1;
+          return acc;
+        }, {});
+
+      const scoreHistory = Object.entries(scoresByDay).map(([date, data]) => ({
+        date,
+        score: Math.round(data.total / data.count)
+      }));
 
       // Calculate conversion data (monthly)
       const monthlyData = leads.reduce((acc: { [key: string]: { leads: number; conversions: number } }, lead) => {
@@ -196,14 +225,28 @@ function Dashboard() {
         monthlyGrowth,
         leadsByStatus,
         leadScoreHistory: scoreHistory,
-        conversionData
+        conversionData,
+        highPriorityLeads,
+        newLeads
       });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
+      setError('Failed to load dashboard statistics');
     } finally {
       setLoading(false);
     }
   }
+
+  const handleSendAutomatedEmail = async (leadId: string) => {
+    try {
+      const { error } = await supabase.rpc('send_automated_email', { lead_id: leadId });
+      if (error) throw error;
+      fetchStats(); // Refresh data
+    } catch (error) {
+      console.error('Error sending automated email:', error);
+      alert('Failed to send automated email');
+    }
+  };
 
   function getTimeFilterDays(filter: TimeFilter): number {
     switch (filter) {
@@ -214,49 +257,70 @@ function Dashboard() {
     }
   }
 
-  const StatCard = ({ title, value, icon: Icon, trend, trendValue }: any) => (
-    <div className="card p-6 hover:shadow-md transition-all duration-300">
+  const LeadCard = ({ lead, priority = false }: { lead: any; priority?: boolean }) => (
+    <div className="p-4 hover:bg-gray-50 transition-colors duration-200 border-b border-gray-200 last:border-0">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-500">{title}</p>
-          <p className="text-2xl font-semibold text-gray-900 mt-2">{value}</p>
-          {trend && (
-            <div className="flex items-center mt-2">
-              {trendValue >= 0 ? (
-                <ArrowUp className="h-4 w-4 text-green-500" />
-              ) : (
-                <ArrowDown className="h-4 w-4 text-red-500" />
-              )}
-              <span className={`text-sm font-medium ${
-                trendValue >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {Math.abs(trendValue)}%
-              </span>
-            </div>
-          )}
+          <Link 
+            to={`/leads/${lead.id}`}
+            className="font-medium text-gray-900 hover:text-indigo-600"
+          >
+            {lead.company_name}
+          </Link>
+          <p className="text-sm text-gray-500 mt-1">
+            {lead.industry || 'No industry specified'}
+          </p>
         </div>
-        <div className="p-3 bg-indigo-50 rounded-lg">
-          <Icon className="h-6 w-6 text-indigo-600" />
+        <div className="flex items-center space-x-4">
+          <div className="text-right">
+            <p className="text-sm font-medium text-gray-900">
+              Score: {lead.lead_score}
+            </p>
+            <p className="text-sm text-gray-500">
+              {new Date(lead.created_at).toLocaleDateString()}
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              lead.status === 'new' ? 'bg-green-100 text-green-800' :
+              lead.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
+              lead.status === 'qualified' ? 'bg-purple-100 text-purple-800' :
+              'bg-gray-100 text-gray-800'
+            }`}>
+              {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
+            </span>
+            <div className="relative group">
+              <button
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                title="Contact Options"
+              >
+                <Mail className="h-5 w-5" />
+              </button>
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden group-hover:block">
+                <button
+                  onClick={() => handleSendAutomatedEmail(lead.id)}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Automated Email
+                </button>
+                <a
+                  href={`mailto:${lead.email}`}
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open in Mail App
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+      {priority && lead.about && (
+        <p className="mt-2 text-sm text-gray-600 line-clamp-2">{lead.about}</p>
+      )}
     </div>
   );
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-3 shadow-lg rounded-lg border border-gray-200">
-          <p className="text-sm font-medium text-gray-900">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: {entry.value}
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
 
   if (loading) {
     return (
@@ -324,20 +388,20 @@ function Dashboard() {
             Export
           </button>
         </div>
-        
-        {/* Job Status Message */}
-        {jobStatus && jobStatus !== 'complete' && (
-          <div className={`mt-4 p-4 rounded-md ${
-            jobStatus === 'error' ? 'bg-red-50 text-red-800' : 
-            jobStatus === 'processing' ? 'bg-blue-50 text-blue-800' : 
-            'bg-gray-50 text-gray-800'
-          }`}>
-            {jobStatus === 'error' ? 'Error generating leads. Please try again.' :
-             jobStatus === 'processing' ? 'Generating leads. This may take a few minutes...' :
-             'Starting lead generation...'}
-          </div>
-        )}
       </div>
+      
+      {/* Job Status Message */}
+      {jobStatus && jobStatus !== 'complete' && (
+        <div className={`mt-4 p-4 rounded-md ${
+          jobStatus === 'error' ? 'bg-red-50 text-red-800' : 
+          jobStatus === 'processing' ? 'bg-blue-50 text-blue-800' : 
+          'bg-gray-50 text-gray-800'
+        }`}>
+          {jobStatus === 'error' ? 'Error generating leads. Please try again.' :
+           jobStatus === 'processing' ? 'Generating leads. This may take a few minutes...' :
+           'Starting lead generation...'}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard
@@ -362,6 +426,64 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* High Priority Leads */}
+        <div className="card">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">High Priority Leads</h2>
+              <p className="text-sm text-gray-500 mt-1">Leads with score ≥ 70 requiring attention</p>
+            </div>
+            {stats.highPriorityLeads.length > 0 && (
+              <Link to="/leads" className="text-sm text-indigo-600 hover:text-indigo-900 font-medium">
+                View all
+              </Link>
+            )}
+          </div>
+          
+          {stats.highPriorityLeads.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
+              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-lg font-medium">No high priority leads</p>
+              <p className="mt-1">All high-scoring leads are being handled</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {stats.highPriorityLeads.slice(0, 5).map((lead) => (
+                <LeadCard key={lead.id} lead={lead} priority />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* New Leads */}
+        <div className="card">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">New Leads</h2>
+              <p className="text-sm text-gray-500 mt-1">Leads from the last 7 days</p>
+            </div>
+            {stats.newLeads.length > 0 && (
+              <Link to="/leads" className="text-sm text-indigo-600 hover:text-indigo-900 font-medium">
+                View all
+              </Link>
+            )}
+          </div>
+          
+          {stats.newLeads.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
+              <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-lg font-medium">No new leads</p>
+              <p className="mt-1">No leads have been added in the last 7 days</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {stats.newLeads.slice(0, 5).map((lead) => (
+                <LeadCard key={lead.id} lead={lead} />
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="card p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Lead Score Trends</h2>
           <div className="h-80">
@@ -444,68 +566,52 @@ function Dashboard() {
           </div>
         </div>
       </div>
-
-      <div className="card">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Leads</h2>
-          <Link to="/leads" className="text-sm text-indigo-600 hover:text-indigo-900 font-medium">
-            View all
-          </Link>
-        </div>
-        
-        {stats.recentLeads.length > 0 ? (
-          <div className="divide-y divide-gray-200">
-            {stats.recentLeads.map((lead) => (
-              <div key={lead.id} className="p-6 hover:bg-gray-50 transition-colors duration-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Link 
-                      to={`/leads/${lead.id}`}
-                      className="font-medium text-gray-900 hover:text-indigo-600"
-                    >
-                      {lead.company_name}
-                    </Link>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {lead.industry || 'No industry specified'}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">
-                        Score: {lead.lead_score}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {new Date(lead.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      lead.status === 'new' ? 'bg-green-100 text-green-800' :
-                      lead.status === 'contacted' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-6 text-center text-gray-500">
-            <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <p className="text-lg font-medium">No leads yet</p>
-            <p className="mt-1">Start by adding your first lead</p>
-            <Link
-              to="/leads/new"
-              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-            >
-              Add Lead
-            </Link>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
+
+const StatCard = ({ title, value, icon: Icon, trend, trendValue }: any) => (
+  <div className="card p-6 hover:shadow-md transition-all duration-300">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-500">{title}</p>
+        <p className="text-2xl font-semibold text-gray-900 mt-2">{value}</p>
+        {trend && (
+          <div className="flex items-center mt-2">
+            {trendValue >= 0 ? (
+              <ArrowUp className="h-4 w-4 text-green-500" />
+            ) : (
+              <ArrowDown className="h-4 w-4 text-red-500" />
+            )}
+            <span className={`text-sm font-medium ${
+              trendValue >= 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {Math.abs(trendValue)}%
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="p-3 bg-indigo-50 rounded-lg">
+        <Icon className="h-6 w-6 text-indigo-600" />
+      </div>
+    </div>
+  </div>
+);
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-3 shadow-lg rounded-lg border border-gray-200">
+        <p className="text-sm font-medium text-gray-900">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <p key={index} className="text-sm" style={{ color: entry.color }}>
+            {entry.name}: {entry.value}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
 
 export default Dashboard;

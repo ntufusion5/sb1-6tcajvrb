@@ -8,7 +8,7 @@ export type Notification = {
   user_id: string;
 };
 
-export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'proposal' | 'closed' | 'void' | 'pending' | 'rejected';
+export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'closed';
 
 export type Lead = {
   id: string;
@@ -37,14 +37,38 @@ export type LeadStats = {
   byIndustry: Record<string, number>;
 };
 
-export type UserSettings = {
-  leadScoring: {
-    minEmployeeCount: number;
-    minAnnualRevenue: number;
+export type LeadScoringSettings = {
+  smePoints: number;
+  revenueRanges: {
+    min: number;
+    max: number;
+    points: number;
+  }[];
+  employeeRanges: {
+    min: number;
+    max: number;
+    points: number;
+  }[];
+  aiReadinessPoints: {
+    competent: number;
+    ready: number;
+    aware: number;
+    unaware: number;
   };
+  responseTimeMultipliers: {
+    within24h: number;
+    within48h: number;
+    within72h: number;
+  };
+  qualificationThreshold: number;
+};
+
+export type UserSettings = {
+  leadScoring: LeadScoringSettings;
   notifications: {
     emailEnabled: boolean;
     scoreAlerts: boolean;
+    scoreThreshold: number;
   };
 };
 

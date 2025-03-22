@@ -27,6 +27,7 @@ export interface Database {
           updated_at: string
           last_contacted: string | null
           notes: string | null
+          response_time: number | null
         }
         Insert: {
           id?: string
@@ -45,6 +46,7 @@ export interface Database {
           updated_at?: string
           last_contacted?: string | null
           notes?: string | null
+          response_time?: number | null
         }
         Update: {
           id?: string
@@ -63,6 +65,7 @@ export interface Database {
           updated_at?: string
           last_contacted?: string | null
           notes?: string | null
+          response_time?: number | null
         }
       }
       notifications: {

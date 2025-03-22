@@ -6,6 +6,8 @@ interface LeadScoreDisplayProps {
     smeScore: number;
     revenueScore: number;
     employeeScore: number;
+    aiReadinessScore: number;
+    responseTimeMultiplier: number;
     total: number;
   };
 }
@@ -23,11 +25,11 @@ export default function LeadScoreDisplay({ scoreBreakdown }: LeadScoreDisplayPro
             <div>
               <span className="text-sm font-medium text-gray-700">SME Status</span>
             </div>
-            <div className="text-sm font-semibold text-indigo-600">{scoreBreakdown.smeScore}/30</div>
+            <div className="text-sm font-semibold text-indigo-600">{scoreBreakdown.smeScore}/25</div>
           </div>
           <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100">
             <div
-              style={{ width: `${(scoreBreakdown.smeScore / 30) * 100}%` }}
+              style={{ width: `${(scoreBreakdown.smeScore / 25) * 100}%` }}
               className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-500 transition-all duration-300 ease-in-out"
             />
           </div>
@@ -38,11 +40,11 @@ export default function LeadScoreDisplay({ scoreBreakdown }: LeadScoreDisplayPro
             <div>
               <span className="text-sm font-medium text-gray-700">Annual Revenue</span>
             </div>
-            <div className="text-sm font-semibold text-indigo-600">{scoreBreakdown.revenueScore}/40</div>
+            <div className="text-sm font-semibold text-indigo-600">{scoreBreakdown.revenueScore}/25</div>
           </div>
           <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100">
             <div
-              style={{ width: `${(scoreBreakdown.revenueScore / 40) * 100}%` }}
+              style={{ width: `${(scoreBreakdown.revenueScore / 25) * 100}%` }}
               className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-500 transition-all duration-300 ease-in-out"
             />
           </div>
@@ -53,12 +55,42 @@ export default function LeadScoreDisplay({ scoreBreakdown }: LeadScoreDisplayPro
             <div>
               <span className="text-sm font-medium text-gray-700">Employee Count</span>
             </div>
-            <div className="text-sm font-semibold text-indigo-600">{scoreBreakdown.employeeScore}/30</div>
+            <div className="text-sm font-semibold text-indigo-600">{scoreBreakdown.employeeScore}/25</div>
           </div>
           <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100">
             <div
-              style={{ width: `${(scoreBreakdown.employeeScore / 30) * 100}%` }}
+              style={{ width: `${(scoreBreakdown.employeeScore / 25) * 100}%` }}
               className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-500 transition-all duration-300 ease-in-out"
+            />
+          </div>
+        </div>
+
+        <div className="relative">
+          <div className="flex items-center justify-between mb-1">
+            <div>
+              <span className="text-sm font-medium text-gray-700">AI Readiness</span>
+            </div>
+            <div className="text-sm font-semibold text-indigo-600">{scoreBreakdown.aiReadinessScore}/25</div>
+          </div>
+          <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100">
+            <div
+              style={{ width: `${(scoreBreakdown.aiReadinessScore / 25) * 100}%` }}
+              className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-500 transition-all duration-300 ease-in-out"
+            />
+          </div>
+        </div>
+
+        <div className="relative">
+          <div className="flex items-center justify-between mb-1">
+            <div>
+              <span className="text-sm font-medium text-gray-700">Response Time Multiplier</span>
+            </div>
+            <div className="text-sm font-semibold text-indigo-600">×{scoreBreakdown.responseTimeMultiplier.toFixed(1)}</div>
+          </div>
+          <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100">
+            <div
+              style={{ width: `${((scoreBreakdown.responseTimeMultiplier - 1) / 0.3) * 100}%` }}
+              className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500 transition-all duration-300 ease-in-out"
             />
           </div>
         </div>
