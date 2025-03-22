@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Mail, Send, ExternalLink, Users, Download, Filter, Search, ChevronDown, Trash2, Edit, AlertCircle, RefreshCw, Eye, Clock } from 'lucide-react';
 import Papa from 'papaparse';
@@ -26,18 +26,42 @@ type FilterOptions = {
 
 function LeadsList() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const statusFromUrl = queryParams.get('status');
+
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<FilterOptions>({
-    status: '',
+    status: statusFromUrl || '',
     industry: '',
     scoreRange: '',
     sortBy: 'recent'
   });
   const [showFilters, setShowFilters] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (statusFromUrl) {
+      setFilters(prev => ({ ...prev, status: statusFromUrl }));
+    }
+  }, [statusFromUrl]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (filters.status) {
+      params.set('status', filters.status);
+    } else {
+      params.delete('status');
+    }
+    const newSearch = params.toString();
+    const newPath = `${location.pathname}${newSearch ? `?${newSearch}` : ''}`;
+    if (location.search !== `?${newSearch}`) {
+      navigate(newPath, { replace: true });
+    }
+  }, [filters.status, navigate, location]);
 
   useEffect(() => {
     checkAuth();
@@ -90,6 +114,7 @@ function LeadsList() {
       sortBy: 'recent'
     });
     setSearchTerm('');
+    navigate('/leads', { replace: true });
   };
 
   const handleExport = () => {
@@ -140,14 +165,12 @@ function LeadsList() {
 
   const handleSendAutomatedEmail = async (lead: Lead) => {
     try {
-      // Send automated email
       const { error: emailError } = await supabase.rpc('send_automated_email', { 
         lead_id: lead.id 
       });
 
       if (emailError) throw emailError;
 
-      // Refresh leads to get updated status
       await fetchLeads();
     } catch (error) {
       console.error('Error sending automated email:', error);

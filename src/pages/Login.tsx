@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
-import { AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle, Loader2, Eye, EyeOff, Info } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -65,6 +65,27 @@ export default function Login() {
     }
   };
 
+  const useDemoAccount = async () => {
+    setEmail('demo@leadgenius.com');
+    setPassword('demo123');
+    setRememberMe(true);
+
+    try {
+      const { error, success } = await signIn('demo@leadgenius.com', 'demo123', true);
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      if (success) {
+        navigate(from, { replace: true });
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+    }
+  };
+
   const remainingAttempts = 5 - failedAttempts;
 
   return (
@@ -77,6 +98,26 @@ export default function Login() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          {/* Demo Account Section */}
+          <div className="mb-6 bg-indigo-50 border border-indigo-200 rounded-md p-4">
+            <div className="flex">
+              <Info className="h-5 w-5 text-indigo-400 mt-0.5 mr-3" />
+              <div>
+                <h3 className="text-sm font-medium text-indigo-800">Demo Account</h3>
+                <p className="mt-1 text-sm text-indigo-700">
+                  Email: demo@leadgenius.com<br />
+                  Password: demo123
+                </p>
+                <button
+                  onClick={useDemoAccount}
+                  className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                >
+                  Use Demo Account →
+                </button>
+              </div>
+            </div>
+          </div>
+
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4">
               <div className="flex">

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   BarChart as BarChartIcon, Users, TrendingUp, ArrowUp, 
   ArrowDown, Filter, Calendar, Download, AlertCircle,
@@ -18,7 +18,13 @@ type DashboardStats = {
   monthlyGrowth: number;
   leadsByStatus: { name: string; value: number }[];
   leadScoreHistory: { date: string; score: number }[];
-  conversionData: { month: string; leads: number; conversions: number }[];
+  conversionData: { 
+    month: string; 
+    total: number;
+    qualified: number;
+    contacted: number;
+    closed: number;
+  }[];
   highPriorityLeads: any[];
   newLeads: any[];
 };
@@ -26,6 +32,7 @@ type DashboardStats = {
 type TimeFilter = '7d' | '30d' | '90d' | 'all';
 
 function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     totalLeads: 0,
     averageScore: 0,
@@ -47,13 +54,12 @@ function Dashboard() {
   useEffect(() => {
     fetchStats();
   }, [timeFilter]);
-  
+
   async function generateLeads() {
     try {
       setGeneratingLeads(true);
       setJobStatus('starting');
       
-      // Render.com deployed API URL
       const apiUrl = 'https://lead-generator-api-m68v.onrender.com';
       
       const response = await fetch(`${apiUrl}/api/generate-leads`, {
@@ -69,7 +75,6 @@ function Dashboard() {
       if (data.success) {
         setJobId(data.jobId);
         setJobStatus('processing');
-        // Start polling for job status
         pollJobStatus(data.jobId);
       } else {
         setJobStatus('error');
@@ -83,7 +88,6 @@ function Dashboard() {
   
   async function pollJobStatus(id: string) {
     try {
-      // Render.com deployed API URL
       const apiUrl = 'https://lead-generator-api-m68v.onrender.com';
       
       const response = await fetch(`${apiUrl}/api/check-status/${id}`);
@@ -92,11 +96,9 @@ function Dashboard() {
       setJobStatus(data.status);
       
       if (data.status === 'processing') {
-        // Continue polling every 5 seconds
         setTimeout(() => pollJobStatus(id), 5000);
       } else if (data.status === 'complete') {
         setGeneratingLeads(false);
-        // Refresh dashboard data
         fetchStats();
       } else {
         setGeneratingLeads(false);
@@ -129,7 +131,6 @@ function Dashboard() {
           startDate.setFullYear(now.getFullYear() - 1);
       }
 
-      // Fetch all leads within the time range
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
         .select('*')
@@ -144,19 +145,16 @@ function Dashboard() {
         ? Math.round(leads.reduce((acc, lead) => acc + (lead.lead_score || 0), 0) / totalLeads)
         : 0;
 
-      // Get high priority leads (score >= 70 and not contacted)
       const highPriorityLeads = leads.filter(lead => 
         lead.lead_score >= 70 && lead.status === 'qualified'
       ).sort((a, b) => b.lead_score - a.lead_score);
 
-      // Get new leads from the last 7 days
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const newLeads = leads.filter(lead => 
         new Date(lead.created_at) >= sevenDaysAgo && lead.status === 'new'
       );
 
-      // Calculate leads by status
       const statusCounts = leads.reduce((acc: { [key: string]: number }, lead) => {
         acc[lead.status] = (acc[lead.status] || 0) + 1;
         return acc;
@@ -167,7 +165,6 @@ function Dashboard() {
         value
       }));
 
-      // Calculate lead score history (average score by day)
       const scoresByDay = leads
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
         .reduce((acc: { [key: string]: { total: number; count: number } }, lead) => {
@@ -185,16 +182,36 @@ function Dashboard() {
         score: Math.round(data.total / data.count)
       }));
 
-      // Calculate conversion data (monthly)
-      const monthlyData = leads.reduce((acc: { [key: string]: { leads: number; conversions: number } }, lead) => {
+      const monthlyData = leads.reduce((acc: { [key: string]: { 
+        total: number;
+        qualified: number;
+        contacted: number;
+        closed: number;
+      } }, lead) => {
         const month = new Date(lead.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
         if (!acc[month]) {
-          acc[month] = { leads: 0, conversions: 0 };
+          acc[month] = { 
+            total: 0,
+            qualified: 0,
+            contacted: 0,
+            closed: 0
+          };
         }
-        acc[month].leads++;
+        acc[month].total++;
+        
         if (lead.status === 'closed') {
-          acc[month].conversions++;
+          acc[month].closed++;
+          acc[month].contacted++;
+          acc[month].qualified++;
+        } else if (lead.status === 'contacted') {
+          acc[month].contacted++;
+          if (lead.lead_score >= 70) {
+            acc[month].qualified++;
+          }
+        } else if (lead.status === 'qualified') {
+          acc[month].qualified++;
         }
+        
         return acc;
       }, {});
 
@@ -203,7 +220,6 @@ function Dashboard() {
         ...data
       }));
 
-      // Calculate monthly growth
       const previousPeriodLeads = leads.filter(lead => {
         const createdAt = new Date(lead.created_at);
         return createdAt >= new Date(now.getTime() - 2 * getTimeFilterDays(timeFilter) * 24 * 60 * 60 * 1000) &&
@@ -241,11 +257,15 @@ function Dashboard() {
     try {
       const { error } = await supabase.rpc('send_automated_email', { lead_id: leadId });
       if (error) throw error;
-      fetchStats(); // Refresh data
+      fetchStats();
     } catch (error) {
       console.error('Error sending automated email:', error);
       alert('Failed to send automated email');
     }
+  };
+
+  const handleStatusClick = (status: string) => {
+    navigate(`/leads?status=${status.toLowerCase()}`);
   };
 
   function getTimeFilterDays(filter: TimeFilter): number {
@@ -361,7 +381,6 @@ function Dashboard() {
             </select>
           </div>
           
-          {/* Generate Leads Button */}
           <button 
             className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${generatingLeads ? 'opacity-75 cursor-not-allowed' : ''}`}
             onClick={generateLeads}
@@ -390,7 +409,6 @@ function Dashboard() {
         </div>
       </div>
       
-      {/* Job Status Message */}
       {jobStatus && jobStatus !== 'complete' && (
         <div className={`mt-4 p-4 rounded-md ${
           jobStatus === 'error' ? 'bg-red-50 text-red-800' : 
@@ -426,7 +444,6 @@ function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* High Priority Leads */}
         <div className="card">
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div>
@@ -455,7 +472,6 @@ function Dashboard() {
           )}
         </div>
 
-        {/* New Leads */}
         <div className="card">
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div>
@@ -524,6 +540,8 @@ function Dashboard() {
                   fill="#4F46E5"
                   radius={[4, 4, 0, 0]}
                   name="Leads"
+                  cursor="pointer"
+                  onClick={(data) => handleStatusClick(data.name)}
                 />
               </BarChart>
             </ResponsiveContainer>
@@ -545,21 +563,39 @@ function Dashboard() {
                 <Legend />
                 <Area
                   type="monotone"
-                  dataKey="leads"
+                  dataKey="total"
                   stackId="1"
                   stroke="#4F46E5"
                   fill="#4F46E5"
-                  fillOpacity={0.2}
+                  fillOpacity={0.1}
                   name="Total Leads"
                 />
                 <Area
                   type="monotone"
-                  dataKey="conversions"
+                  dataKey="qualified"
                   stackId="2"
+                  stroke="#8B5CF6"
+                  fill="#8B5CF6"
+                  fillOpacity={0.1}
+                  name="Qualified"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="contacted"
+                  stackId="3"
+                  stroke="#3B82F6"
+                  fill="#3B82F6"
+                  fillOpacity={0.1}
+                  name="Contacted"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="closed"
+                  stackId="4"
                   stroke="#10B981"
                   fill="#10B981"
-                  fillOpacity={0.2}
-                  name="Conversions"
+                  fillOpacity={0.1}
+                  name="Closed"
                 />
               </AreaChart>
             </ResponsiveContainer>
