@@ -20,6 +20,7 @@ This system automatically:
 - Supabase account
 - JigsawStack API key
 - OpenAI API key
+- Render.com account (for deployment)
 
 ## Installation
 
@@ -67,7 +68,7 @@ Options:
 - `--verbose`: Enable verbose logging
 - `--analyze-only`: Only analyze existing leads, do not generate new ones
 
-### Running the API Server
+### Running the API Server Locally
 
 ```bash
 npm start
@@ -127,6 +128,53 @@ This migration will:
 - Add indexes for better performance
 
 You can ask Bolt to apply this migration to update your Supabase database.
+
+## Deployment to Render.com
+
+### 1. Create a Render Account
+
+Go to [render.com](https://render.com/) and sign up for an account if you don't have one already.
+
+### 2. Deploy the API Server
+
+1. **Connect your GitHub repository**:
+   - In the Render dashboard, click "New +"
+   - Select "Web Service"
+   - Connect your GitHub account
+   - Select your repository
+
+2. **Configure the deployment**:
+   - Name: "lead-generator-api"
+   - Root Directory: "scripts/lead-generator"
+   - Environment: "Node"
+   - Build Command: `npm install`
+   - Start Command: `npm start`
+   - Select the appropriate plan (Free tier is fine for testing)
+
+3. **Set environment variables**:
+   - Click on "Environment" tab
+   - Add the following environment variables:
+     - SUPABASE_URL: your_supabase_url
+     - SUPABASE_SERVICE_KEY: your_supabase_key
+     - OPENAI_API_KEY: your_openai_key
+     - JIGSAWSTACK_API_KEY: your_jigsawstack_key
+
+4. **Deploy your service**:
+   - Click "Create Web Service"
+   - Wait for the deployment to complete (this may take a few minutes)
+   - Once deployed, Render will provide you with a URL (e.g., https://lead-generator-api.onrender.com)
+
+### 3. Update Frontend Code
+
+In your frontend code (Dashboard.tsx), update the API URL to point to your Render.com URL:
+
+```typescript
+// Replace this:
+const apiUrl = 'http://localhost:3000';
+
+// With this:
+const apiUrl = 'https://lead-generator-api.onrender.com';
+```
 
 ## License
 
