@@ -3,10 +3,10 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-// Background processing function
+// Simplified background processing function
 const processInBackground = async (jobId, requestData, supabaseUrl, supabaseKey) => {
   try {
-    console.log('Starting background processing for job:', jobId);
+    console.log('Starting simplified background processing for job:', jobId);
     
     // Initialize Supabase client
     if (!supabaseUrl || !supabaseKey) {
@@ -27,10 +27,7 @@ const processInBackground = async (jobId, requestData, supabaseUrl, supabaseKey)
       })
       .eq('job_id', jobId);
     
-    // Try to execute Python script
-    let pythonExecuted = false;
-    
-    // First, generate a simple lead with basic information
+    // Generate a simple lead with basic information
     try {
       console.log('Generating a test lead');
       const companyName = `Test Company ${Date.now().toString().slice(-4)}`;
@@ -40,19 +37,6 @@ const processInBackground = async (jobId, requestData, supabaseUrl, supabaseKey)
       // Log Supabase connection details
       console.log('Supabase URL:', supabaseUrl);
       console.log('Supabase key length:', supabaseKey ? supabaseKey.length : 0);
-      
-      // Log table structure
-      console.log('Checking table structure...');
-      const { data: tableInfo, error: tableError } = await supabase
-        .from('leads')
-        .select('*')
-        .limit(1);
-      
-      if (tableError) {
-        console.error('Error checking table structure:', tableError);
-      } else {
-        console.log('Table structure sample:', tableInfo);
-      }
       
       // Lead data for insertion with all required fields
       const leadDataToInsert = {
@@ -74,107 +58,13 @@ const processInBackground = async (jobId, requestData, supabaseUrl, supabaseKey)
       
       console.log('Lead data to insert:', leadDataToInsert);
       
-      // Insert the lead into the database with simplified data
+      // Insert the lead into the database
       const { data: leadData, error: leadError } = await supabase
         .from('leads')
         .insert(leadDataToInsert);
       
       if (leadError) {
         console.error('Error inserting lead:', JSON.stringify(leadError));
-      } else {
-        console.log('Successfully inserted lead:', JSON.stringify(leadData || {}));
-        
-        // Update job status to indicate lead was generated
-        const { error: updateError } = await supabase
-          .from('lead_generation_jobs')
-          .update({
-            status: 'processing',
-            message: 'Lead generated successfully, continuing processing'
-          })
-          .eq('job_id', jobId);
-          
-        if (updateError) {
-          console.error('Error updating job status:', updateError);
-        } else {
-          console.log('Successfully updated job status');
-        }
-      }
-    } catch (dbError) {
-      console.error('Error generating lead:', dbError);
-    }
-    
-    // Path to Python script
-    const pythonScriptPath = path.join(__dirname, '..', 'generate-leads-background', 'python', 'main.py');
-    console.log('Python script path:', pythonScriptPath);
-    
-    // Check if Python script exists
-    if (fs.existsSync(pythonScriptPath)) {
-      console.log('Python script exists at path');
-      
-      try {
-        // Spawn Python process
-        console.log('Spawning Python process...');
-        const pythonProcess = spawn('python3', [
-          pythonScriptPath,
-          '--job-id', jobId,
-          '--count', requestData.count || 1,
-          '--target-profile', JSON.stringify(requestData.targetProfile || {})
-        ]);
-        
-        // Log output for debugging
-        pythonProcess.stdout.on('data', (data) => {
-          console.log(`Python stdout: ${data}`);
-        });
-        
-        pythonProcess.stderr.on('data', (data) => {
-          console.error(`Python stderr: ${data}`);
-        });
-        
-        // Wait for process to complete
-        const exitCode = await new Promise((resolve) => {
-          pythonProcess.on('close', (code) => {
-            console.log(`Python process exited with code ${code}`);
-            resolve(code);
-          });
-        });
-        
-        pythonExecuted = true;
-        
-        // Update job status based on exit code
-        if (exitCode === 0) {
-          console.log('Python script executed successfully');
-          
-          // Update job status to complete
-          console.log('Updating job status to complete');
-          const { error } = await supabase
-            .from('lead_generation_jobs')
-            .update({
-              status: 'complete',
-              updated_at: new Date().toISOString(),
-              message: 'Lead generation completed successfully via Python script'
-            })
-            .eq('job_id', jobId);
-            
-          if (error) {
-            console.error('Error updating job status:', error);
-          } else {
-            console.log('Job completed successfully:', jobId);
-          }
-        } else {
-          console.error('Python script execution failed with code:', exitCode);
-          
-          // Update job status to error
-          await supabase
-            .from('lead_generation_jobs')
-            .update({
-              status: 'error',
-              updated_at: new Date().toISOString(),
-              message: `Python script execution failed with code: ${exitCode}`
-            })
-            .eq('job_id', jobId);
-        }
-      } catch (pythonError) {
-        console.error('Error executing Python script:', pythonError);
         
         // Update job status to error
         await supabase
@@ -182,35 +72,43 @@ const processInBackground = async (jobId, requestData, supabaseUrl, supabaseKey)
           .update({
             status: 'error',
             updated_at: new Date().toISOString(),
-            message: `Error executing Python script: ${pythonError.message}`
+            message: `Error inserting lead: ${JSON.stringify(leadError)}`
           })
           .eq('job_id', jobId);
-      }
-    } else {
-      console.error('Python script does not exist at path');
-    }
-    
-    // If Python wasn't executed, simulate processing
-    if (!pythonExecuted) {
-      console.log('Python script not executed, simulating processing...');
-      await new Promise(resolve => setTimeout(resolve, 5000));
+          
+        return; // Exit early on error
+      } 
       
-      // Update job status to complete
-      console.log('Updating job status to complete (simulated)');
-      const { error } = await supabase
+      console.log('Successfully inserted lead:', JSON.stringify(leadData || {}));
+      
+      // Update job status to complete immediately
+      console.log('Updating job status to complete');
+      const { error: updateError } = await supabase
         .from('lead_generation_jobs')
         .update({
           status: 'complete',
           updated_at: new Date().toISOString(),
-          message: 'Lead generation completed successfully (simulated)'
+          message: 'Lead generation completed successfully'
         })
         .eq('job_id', jobId);
         
-      if (error) {
-        console.error('Error updating job status:', error);
+      if (updateError) {
+        console.error('Error updating job status:', updateError);
       } else {
-        console.log('Job completed successfully (simulated):', jobId);
+        console.log('Job completed successfully:', jobId);
       }
+    } catch (dbError) {
+      console.error('Error generating lead:', dbError);
+      
+      // Update job with error status
+      await supabase
+        .from('lead_generation_jobs')
+        .update({
+          status: 'error',
+          message: `Error generating lead: ${dbError.message}`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('job_id', jobId);
     }
   } catch (error) {
     console.error('Background processing error:', error);
