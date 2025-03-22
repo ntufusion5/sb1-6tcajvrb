@@ -15,7 +15,7 @@ function Navigation() {
   };
 
   const navigationItems = [
-    { path: '/', icon: Home, label: 'Dashboard' },
+    { path: '/dashboard', icon: Home, label: 'Dashboard' },
     { path: '/leads', icon: Users, label: 'Leads' },
     { path: '/settings', icon: Settings, label: 'Settings' },
   ];
@@ -31,7 +31,7 @@ function Navigation() {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="flex items-center space-x-3 group">
+              <Link to="/dashboard" className="flex items-center space-x-3 group">
                 <BarChart2 className="h-8 w-8 text-indigo-600 transition-transform duration-200 group-hover:scale-110" />
                 <span className="text-xl font-display font-bold bg-gradient-to-r from-indigo-600 to-indigo-500 bg-clip-text text-transparent">
                   LeadGenius
