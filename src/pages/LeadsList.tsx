@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Download, Upload, Filter, Search, ChevronDown, Trash2, Edit, AlertCircle, RefreshCw, Eye, Sparkles } from 'lucide-react';
+import { Download, Upload, Filter, Search, ChevronDown, Trash2, Edit, AlertCircle, RefreshCw, Eye } from 'lucide-react';
 import Papa from 'papaparse';
 
 type Lead = {
@@ -15,13 +15,6 @@ type Lead = {
   status: string;
   created_at: string;
   last_contacted: string | null;
-  company_size: string | null;
-  founded: string | null;
-  website: string | null;
-  source_url: string | null;
-  ai_readiness_score: string | null;
-  ai_readiness_category: string | null;
-  company_type: string | null;
 };
 
 type FilterOptions = {
@@ -36,7 +29,6 @@ function LeadsList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [generatingLeads, setGeneratingLeads] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     status: '',
     industry: '',
@@ -103,18 +95,11 @@ function LeadsList() {
       Email: lead.email,
       Industry: lead.industry || '',
       'Employee Count': lead.employee_count || '',
-      'Company Size': lead.company_size || '',
-      'Founded': lead.founded || '',
-      'Website': lead.website || '',
       'AI Readiness': lead.ai_readiness || '',
-      'AI Readiness Score': lead.ai_readiness_score || '',
-      'AI Readiness Category': lead.ai_readiness_category || '',
-      'Company Type': lead.company_type || '',
       'Lead Score': lead.lead_score,
       Status: lead.status,
       'Created At': new Date(lead.created_at).toLocaleDateString(),
-      'Last Contacted': lead.last_contacted ? new Date(lead.last_contacted).toLocaleDateString() : '',
-      'Source URL': lead.source_url || ''
+      'Last Contacted': lead.last_contacted ? new Date(lead.last_contacted).toLocaleDateString() : ''
     }));
 
     const csv = Papa.unparse(exportData);
@@ -143,114 +128,6 @@ function LeadsList() {
     } catch (err) {
       console.error('Error deleting lead:', err);
       alert('Failed to delete lead. Please try again.');
-    }
-  };
-
-  const handleGenerateLeads = async () => {
-    try {
-      console.log('Starting lead generation...');
-      setGeneratingLeads(true);
-      setError(null);
-      
-      // Call the simplified function to start lead generation
-      console.log('Sending request to /api/simple-generate-leads');
-      const response = await fetch('/api/simple-generate-leads', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          count: 1, // Generate 1 lead for testing
-          targetProfile: {
-            employeeCount: '10-50',
-            annualRevenue: '10000000-20000000',
-            preferredType: 'SME'
-          }
-        }),
-      });
-      
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries([...response.headers]));
-      
-      if (!response.ok) {
-        throw new Error(`Failed to start lead generation: ${response.statusText}`);
-      }
-      
-      // Get response as text first
-      const responseText = await response.text();
-      console.log('Raw response text:', responseText);
-      
-      // Check if the response is empty
-      if (!responseText || !responseText.trim()) {
-        throw new Error('Empty response from server');
-      }
-      
-      // Then try to parse as JSON
-      let jobData;
-      try {
-        jobData = JSON.parse(responseText);
-        console.log('Parsed job data:', jobData);
-      } catch (parseError) {
-        console.error('Failed to parse response:', parseError);
-        throw new Error(`Invalid JSON response: ${responseText}`);
-      }
-      
-      // Check if jobId exists in the response
-      if (!jobData || !jobData.jobId) {
-        throw new Error(`Missing jobId in response: ${JSON.stringify(jobData)}`);
-      }
-      
-      const jobId = jobData.jobId;
-      console.log('Job ID:', jobId);
-      
-      // Start polling for job status
-      console.log('Starting to poll for job status...');
-      const statusCheckInterval = setInterval(async () => {
-        try {
-          console.log(`Checking status for job ${jobId}...`);
-          const statusResponse = await fetch(`/api/simple-check-status?jobId=${jobId}`);
-          console.log('Status response:', statusResponse.status);
-          
-          if (statusResponse.ok) {
-            const statusText = await statusResponse.text();
-            console.log('Raw status response:', statusText);
-            
-            let jobStatus;
-            try {
-              jobStatus = JSON.parse(statusText);
-              console.log('Job status:', jobStatus);
-            } catch (parseError) {
-              console.error('Failed to parse status response:', parseError);
-              return; // Continue polling
-            }
-            
-            if (jobStatus.status === 'complete') {
-              console.log('Job complete, clearing interval');
-              clearInterval(statusCheckInterval);
-              setGeneratingLeads(false);
-              await fetchLeads(); // Refresh leads list
-              alert('Lead generation complete!');
-            } else if (jobStatus.status === 'error') {
-              console.log('Job error, clearing interval');
-              clearInterval(statusCheckInterval);
-              setGeneratingLeads(false);
-              setError(jobStatus.message || 'Error generating leads');
-            } else {
-              console.log(`Job status: ${jobStatus.status}`);
-            }
-          } else {
-            console.error('Status check failed:', statusResponse.statusText);
-          }
-        } catch (statusErr) {
-          console.error('Error checking job status:', statusErr);
-          // Don't clear the interval, keep trying
-        }
-      }, 5000); // Check every 5 seconds
-      
-    } catch (err: any) {
-      console.error('Error generating leads:', err);
-      setError(err.message || 'Failed to generate leads. Please try again.');
-      setGeneratingLeads(false);
     }
   };
 
@@ -336,18 +213,6 @@ function LeadsList() {
           >
             <Upload className="h-5 w-5 mr-2" />
             Add Lead
-          </button>
-          <button
-            onClick={handleGenerateLeads}
-            disabled={generatingLeads}
-            className={`flex items-center px-4 py-2 ${
-              generatingLeads 
-                ? 'bg-indigo-400 cursor-not-allowed' 
-                : 'bg-indigo-600 hover:bg-indigo-700'
-            } text-white rounded-md`}
-          >
-            <Sparkles className="h-5 w-5 mr-2" />
-            {generatingLeads ? 'Generating...' : 'Generate Leads'}
           </button>
           <button
             onClick={handleExport}
@@ -514,10 +379,7 @@ function LeadsList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{lead.industry || 'N/A'}</div>
-                      <div className="text-sm text-gray-500">
-                        {lead.ai_readiness_category || lead.ai_readiness || 'Unknown readiness'}
-                        {lead.company_type && ` • ${lead.company_type}`}
-                      </div>
+                      <div className="text-sm text-gray-500">{lead.ai_readiness || 'Unknown readiness'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{lead.lead_score}</div>

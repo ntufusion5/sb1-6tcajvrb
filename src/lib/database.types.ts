@@ -27,13 +27,6 @@ export interface Database {
           updated_at: string
           last_contacted: string | null
           notes: string | null
-          company_size: string | null
-          founded: string | null
-          website: string | null
-          source_url: string | null
-          ai_readiness_score: string | null
-          ai_readiness_category: string | null
-          company_type: string | null
         }
         Insert: {
           id?: string
@@ -52,13 +45,6 @@ export interface Database {
           updated_at?: string
           last_contacted?: string | null
           notes?: string | null
-          company_size?: string | null
-          founded?: string | null
-          website?: string | null
-          source_url?: string | null
-          ai_readiness_score?: string | null
-          ai_readiness_category?: string | null
-          company_type?: string | null
         }
         Update: {
           id?: string
@@ -77,13 +63,6 @@ export interface Database {
           updated_at?: string
           last_contacted?: string | null
           notes?: string | null
-          company_size?: string | null
-          founded?: string | null
-          website?: string | null
-          source_url?: string | null
-          ai_readiness_score?: string | null
-          ai_readiness_category?: string | null
-          company_type?: string | null
         }
       }
       notifications: {
