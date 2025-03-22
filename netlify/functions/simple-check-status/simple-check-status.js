@@ -46,8 +46,7 @@ exports.handler = async function(event, context) {
       status: 'complete',
       message: 'Test job completed successfully (simplified version)',
       created_at: new Date(Date.now() - 60000).toISOString(), // 1 minute ago
-      updated_at: new Date().toISOString(),
-      leads_generated: 1
+      updated_at: new Date().toISOString()
     };
     console.log('Default response data:', responseData);
     

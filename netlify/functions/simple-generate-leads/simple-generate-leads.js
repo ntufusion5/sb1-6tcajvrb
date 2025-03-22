@@ -54,14 +54,22 @@ const processInBackground = async (jobId, requestData, supabaseUrl, supabaseKey)
         console.log('Table structure sample:', tableInfo);
       }
       
-      // Simplified lead data for insertion
+      // Lead data for insertion with all required fields
       const leadDataToInsert = {
         company_name: companyName,
         email: email,
         status: 'new',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        lead_score: 75 // Adding a basic lead score
+        lead_score: 75, // Adding a basic lead score
+        is_sme: true, // Required field
+        industry: 'Technology', // Optional but useful
+        website: `https://${website}`,
+        company_size: '10-50',
+        founded: `${2010 + Math.floor(Math.random() * 13)}`, // 2010-2023
+        ai_readiness_category: 'AI Aware',
+        ai_readiness_score: '3.0',
+        company_type: 'SME'
       };
       
       console.log('Lead data to insert:', leadDataToInsert);
