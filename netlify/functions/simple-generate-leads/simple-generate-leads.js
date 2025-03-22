@@ -76,18 +76,19 @@ const processInBackground = async (jobId, requestData, supabaseUrl, supabaseKey)
       } else {
         console.log('Successfully inserted lead:', JSON.stringify(leadData || {}));
         
-        // Update job with lead count
+        // Update job status to indicate lead was generated
         const { error: updateError } = await supabase
           .from('lead_generation_jobs')
           .update({
-            leads_generated: 1
+            status: 'processing',
+            message: 'Lead generated successfully, continuing processing'
           })
           .eq('job_id', jobId);
           
         if (updateError) {
-          console.error('Error updating job with lead count:', updateError);
+          console.error('Error updating job status:', updateError);
         } else {
-          console.log('Successfully updated job with lead count');
+          console.log('Successfully updated job status');
         }
       }
     } catch (dbError) {
@@ -142,7 +143,6 @@ const processInBackground = async (jobId, requestData, supabaseUrl, supabaseKey)
             .update({
               status: 'complete',
               updated_at: new Date().toISOString(),
-              leads_generated: requestData.count || 1,
               message: 'Lead generation completed successfully via Python script'
             })
             .eq('job_id', jobId);
@@ -194,7 +194,6 @@ const processInBackground = async (jobId, requestData, supabaseUrl, supabaseKey)
         .update({
           status: 'complete',
           updated_at: new Date().toISOString(),
-          leads_generated: 1,
           message: 'Lead generation completed successfully (simulated)'
         })
         .eq('job_id', jobId);
@@ -285,9 +284,9 @@ exports.handler = async function(event, context) {
           .insert({
             job_id: jobId,
             status: 'pending',
+            message: 'Lead generation job started',
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            request_data: requestData
+            updated_at: new Date().toISOString()
           });
         
         if (error) {
